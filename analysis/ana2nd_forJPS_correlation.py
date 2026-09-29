@@ -89,17 +89,17 @@ def main_compare_from_csv_laser(patterns_labels=None):
     with 'proj_rise'/'proj_fall' columns added.
     """
     if patterns_labels is None:
-        # patterns_labels = [ # z-scan at x = 4.0 mm
-        #     ('Aug31st/wf_260831_15554?_*.npz', '6.90 mm'),
-        #     ('Aug31st/wf_260831_15562?_*.npz', '6.70 mm'),
-        #     ('Aug31st/wf_260831_15570?_*.npz', '6.50 mm'),
-        #     ('Aug31st/wf_260831_15575?_*.npz', '6.30 mm'),
-        #     ('Aug31st/wf_260831_15413?_*.npz', '6.15 mm'),
-        #     ('Aug31st/wf_260831_15421?_*.npz', '6.00 mm'),
-        #     ('Aug31st/wf_260831_15425?_*.npz', '5.85 mm'),
-        #     ('Aug31st/wf_260831_15434?_*.npz', '5.70 mm'),
-        #     ('Aug31st/wf_260831_16212?_*.npz', '5.50 mm'),
-        # ]
+        patterns_labels = [ # z-scan at x = 4.0 mm
+            ('Aug31st/wf_260831_15554?_*.npz', '6.90 mm'),
+            ('Aug31st/wf_260831_15562?_*.npz', '6.70 mm'),
+            ('Aug31st/wf_260831_15570?_*.npz', '6.50 mm'),
+            ('Aug31st/wf_260831_15575?_*.npz', '6.30 mm'),
+            ('Aug31st/wf_260831_15413?_*.npz', '6.15 mm'),
+            ('Aug31st/wf_260831_15421?_*.npz', '6.00 mm'),
+            ('Aug31st/wf_260831_15425?_*.npz', '5.85 mm'),
+            ('Aug31st/wf_260831_15434?_*.npz', '5.70 mm'),
+            ('Aug31st/wf_260831_16212?_*.npz', '5.50 mm'),
+        ]
         # patterns_labels = [ # z-scan at x = 3.5 mm
         #     ('Aug31st/wf_260831_15474?_*.npz', '6.90 mm'),
         #     ('Aug31st/wf_260831_15482?_*.npz', '6.70 mm'),
@@ -109,14 +109,14 @@ def main_compare_from_csv_laser(patterns_labels=None):
         #     ('Aug31st/wf_260831_15514?_*.npz', '5.70 mm'),
         #     ('Aug31st/wf_260831_16203?_*.npz', '5.50 mm'),
         # ]
-        patterns_labels = [ # Temp scan at (x,z) = (4.00, 6.30) mm
-            ('Sep1st/wf_260901_14284?_*.npz', '3.90 K'),
-            ('Sep1st/wf_260901_15450?_*.npz', '4.20 K'),
-            ('Sep1st/wf_260901_16103?_*.npz', '4.55 K'),
-            ('Sep1st/wf_260901_16461?_*.npz', '4.90 K'),
-            ('Sep1st/wf_260901_17042?_*.npz', '5.30 K'),
-            ('Sep1st/wf_260901_17300?_*.npz', '5.95 K'),
-        ]
+        # patterns_labels = [ # Temp scan at (x,z) = (4.00, 6.30) mm
+        #     ('Sep1st/wf_260901_14284?_*.npz', '3.90 K'),
+        #     ('Sep1st/wf_260901_15450?_*.npz', '4.20 K'),
+        #     ('Sep1st/wf_260901_16103?_*.npz', '4.55 K'),
+        #     ('Sep1st/wf_260901_16461?_*.npz', '4.90 K'),
+        #     ('Sep1st/wf_260901_17042?_*.npz', '5.30 K'),
+        #     ('Sep1st/wf_260901_17300?_*.npz', '5.95 K'),
+        # ]
         # patterns_labels = [ # Temp scan at (x,z) = (4.00, 6.00) mm
         #     ('Sep1st/wf_260901_14232?_*.npz', '3.90 K'),
         #     ('Sep1st/wf_260901_15462?_*.npz', '4.20 K'),
@@ -169,13 +169,15 @@ def main_compare_from_csv_laser(patterns_labels=None):
         dtbin[label] = tbin
         dsample_rate[label] = sample_rate
 
-    fig, axs = plt.subplots(figsize=(15, 18), ncols=3, nrows=5)
     binped = np.linspace(-25, 25, 101)
-    bintmax = np.arange(0, 0.2, 0.002)
-    bintaur = np.arange(0, 0.451, 0.004)
+    bintmax = np.arange(-0.1, 0.3, 0.004)
+    bintaur = np.arange(0, 0.401, 0.004)
     bintaud = np.arange(0, 1.51, 0.01)
-    binq = np.linspace(0, 16.1, 101)
-    binpeak = np.linspace(0, 40.1, 101)
+    binq = np.linspace(0,30.1,151)
+    binpeak = np.linspace(0, 50.1, 101)
+    binfrac = np.linspace(0, 0.251, 101)
+
+    fig, axs = plt.subplots(figsize=(15, 18), ncols=3, nrows=5)
 
     for jdx, (label, dfgroup) in enumerate(dgroups.items()):
         tbin = dtbin[label]
@@ -260,9 +262,9 @@ def main_compare_from_csv_laser(patterns_labels=None):
         ax3.grid()
         fig3.colorbar(im,ax=ax3)
 
-    axs2[-1,1].set_xlabel('proj Integral')
+    axs2[-1,1].set_xlabel('Integral [V*0.4ns]')
     axs2[1,0].set_ylabel('proj Half Time (Rise) [$\mu$s]')
-    axs3[-1,1].set_xlabel('proj Integral')
+    axs3[-1,1].set_xlabel('Integral [V*0.4ns]')
     axs3[1,0].set_ylabel('proj Half Time (Decay) [$\mu$s]')
 
     fig2.tight_layout()
@@ -291,17 +293,17 @@ def main_compare_from_csv_laser(patterns_labels=None):
     axs4[0,0].set_ylabel(r'$\tau_{d}$ [$\mu$s]')
     axs4[0,0].set_xlim(bintaur[0], bintaur[-1])
     axs4[0,0].set_ylim(bintaud[0], bintaud[-1])
-    axs4[0,1].set_xlabel('proj Integral')
+    axs4[0,1].set_xlabel(' Integral [V*0.4ns]')
     axs4[0,1].set_ylabel(r'$\tau_{r}$ [$\mu$s]')
     axs4[0,1].set_xlim(binq[0], binq[-1])
     axs4[0,1].set_ylim(bintaur[0], bintaur[-1])
-    axs4[0,2].set_xlabel('proj Integral')
+    axs4[0,2].set_xlabel('Integral [V*0.4ns]')
     axs4[0,2].set_ylabel(r'$\tau_{d}$ [$\mu$s]')
     axs4[0,2].set_xlim(binq[0], binq[-1])
     axs4[0,2].set_ylim(bintaud[0], bintaud[-1])
 
     axs4[1,0].set_xlabel('ch1 Pedestal [mV]')
-    axs4[1,0].set_ylabel('proj Integral')
+    axs4[1,0].set_ylabel('Integral [V*0.4ns]')
     axs4[1,0].set_xlim(binped[0], binped[-1])
     axs4[1,0].set_ylim(binq[0], binq[-1])
     axs4[1,1].set_xlabel('ch1 Pedestal [mV]')
@@ -337,28 +339,28 @@ def main_compare_from_csv_laser(patterns_labels=None):
     # fig5.tight_layout()
     # fig5.savefig('pc5_fromcsv.png')
     fig5, axs5 = plt.subplots(figsize=(16,10), ncols=3, nrows=2)
-    for idx,(itau,ibin) in enumerate(zip(['proj_e_max_left','proj_e_max_right'],[bintaur,bintaud])):
+    for idx,(itau,ibin) in enumerate(zip(['proj_e_max_10ns_left','proj_e_max_10ns_right'],[bintaur,bintaud])):
         for jdx, (label,dfgroup) in enumerate(dgroups.items()):
             ax = axs5[idx,0]
-            ax.plot(dfgroup['proj_integ'], dfgroup[itau], 'o', ms=1, alpha=0.8, color=mpl.cm.jet(jdx / len(dgroups)), label=label)
+            ax.plot(dfgroup['proj_integ_left']+dfgroup['proj_integ_right'], dfgroup[itau], 'o', ms=1, alpha=0.8, color=mpl.cm.jet(jdx / len(dgroups)), label=label)
             ax = axs5[idx,1]
-            ax.plot(dfgroup['proj_max']*1e3, dfgroup[itau], 'o', ms=1, alpha=0.8, color=mpl.cm.jet(jdx / len(dgroups)), label=label)
+            ax.plot(dfgroup['proj_max_10ns']*1e3, dfgroup[itau], 'o', ms=1, alpha=0.8, color=mpl.cm.jet(jdx / len(dgroups)), label=label)
             ax = axs5[idx,2]
-            ax.plot(dfgroup['ch0_peak_max']*1e3, dfgroup[itau], 'o', ms=1, alpha=0.8, color=mpl.cm.jet(jdx / len(dgroups)), label=label)
+            ax.plot(dfgroup['proj_integ_peak'], dfgroup[itau], 'o', ms=1, alpha=0.8, color=mpl.cm.jet(jdx / len(dgroups)), label=label)
         ax = axs5[idx,0]
         ax.set_xlim(binq[0], binq[-1])
         ax.set_ylim(ibin[0], ibin[-1])
-        ax.set_xlabel('Proj Integral')
+        ax.set_xlabel('Integral [V*0.4ns]')
         ax.set_ylabel(r'$\tau_{r}$ [$\mu$s]' if idx==0 else r'$\tau_{d}$ [$\mu$s]')
         ax = axs5[idx,1]
         ax.set_xlim(binpeak[0], binpeak[-1])
         ax.set_ylim(ibin[0], ibin[-1])
-        ax.set_xlabel('Proj Peak Amplitude [mV]')
+        ax.set_xlabel('Peak [mV]')
         ax.set_ylabel(r'$\tau_{r}$ [$\mu$s]' if idx==0 else r'$\tau_{d}$ [$\mu$s]')
         ax = axs5[idx,2]
-        ax.set_xlim(binpeak[0], binpeak[-1])
+        ax.set_xlim(binq[0], binq[-1]/10)
         ax.set_ylim(ibin[0], ibin[-1])
-        ax.set_xlabel('ch0 Peak Amplitude [mV]')
+        ax.set_xlabel('Integral around Peak [mV*0.4ns]')
         ax.set_ylabel(r'$\tau_{r}$ [$\mu$s]' if idx==0 else r'$\tau_{d}$ [$\mu$s]')
     for ax in axs5.flatten():
         ax.grid()
@@ -369,20 +371,32 @@ def main_compare_from_csv_laser(patterns_labels=None):
     fig5.savefig('pc5_fromcsv.png')
 
 
-    fig6,axs6 = plt.subplots(figsize=(16,7),ncols=2, nrows=1)
+    fig6,axs6 = plt.subplots(figsize=(16,14),ncols=2, nrows=2)
     for jdx, (label,dfgroup) in enumerate(dgroups.items()):
-        ax = axs6[0]
-        ax.plot(dfgroup['proj_integ'], dfgroup['proj_max']*1e3, 'o', ms=1, alpha=0.8, color=mpl.cm.jet(jdx / len(dgroups)), label=label)
-        ax = axs6[1]
-        ax.plot(dfgroup['proj_e_max_right'], dfgroup['proj_e_max_left'], 'o', ms=1, alpha=0.8, color=mpl.cm.jet(jdx / len(dgroups)), label=label)
-    axs6[0].set_xlabel('proj Integral')
-    axs6[0].set_ylabel('proj Peak Amplitude [mV]')
-    axs6[1].set_xlabel(r'$\tau_{d}$ [$\mu$s]')
-    axs6[1].set_ylabel(r'$\tau_{r}$ [$\mu$s]')
-    axs6[0].set_xlim(binq[0], binq[-1])
-    axs6[0].set_ylim(binpeak[0], binpeak[-1])
-    axs6[1].set_xlim(bintaud[0], bintaud[-1])
-    axs6[1].set_ylim(bintaur[0], bintaur[-1])
+        ax = axs6[0,0]
+        ax.plot(dfgroup['proj_integ_left']+dfgroup['proj_integ_right'], dfgroup['proj_max_10ns']*1e3, 'o', ms=1, alpha=0.8, color=mpl.cm.jet(jdx / len(dgroups)), label=label)
+        ax = axs6[0,1]
+        ax.plot(dfgroup['proj_e_max_10ns_right'], dfgroup['proj_e_max_10ns_left'], 'o', ms=1, alpha=0.8, color=mpl.cm.jet(jdx / len(dgroups)), label=label)
+        ax = axs6[1,0]
+        ax.plot(dfgroup['proj_e_max_10ns_left'], dfgroup['proj_ninth_max_10ns_left'], 'o', ms=1, alpha=0.8, color=mpl.cm.jet(jdx / len(dgroups)), label=label)
+        ax = axs6[1,1]
+        ax.plot(dfgroup['proj_e_max_10ns_right'], dfgroup['proj_ninth_max_10ns_right'], 'o', ms=1, alpha=0.8, color=mpl.cm.jet(jdx / len(dgroups)), label=label)
+    axs6[0,0].set_xlabel('Integral [V*0.4ns]')
+    axs6[0,0].set_ylabel('Peak Amplitude [mV]')
+    axs6[0,0].set_xlim(binq[0], binq[-1])
+    axs6[0,0].set_ylim(binpeak[0], binpeak[-1])
+    axs6[0,1].set_xlabel(r'$\tau_{d}$ [$\mu$s]')
+    axs6[0,1].set_ylabel(r'$\tau_{r}$ [$\mu$s]')
+    axs6[0,1].set_xlim(bintaud[0], bintaud[-1])
+    axs6[0,1].set_ylim(bintaur[0], bintaur[-1])
+    axs6[1,0].set_xlabel(r'$\tau_{r}$ [$\mu$s]')
+    axs6[1,0].set_ylabel(r'$t_{r}^{0.9}$ [$\mu$s]')
+    axs6[1,0].set_xlim(bintaur[0], bintaur[-1])
+    axs6[1,0].set_ylim(bintaur[0], bintaur[-1])
+    axs6[1,1].set_xlabel(r'$\tau_{d}$ [$\mu$s]')
+    axs6[1,1].set_ylabel(r'$t_{d}^{0.9}$ [$\mu$s]')
+    axs6[1,1].set_xlim(bintaud[0], bintaud[-1])
+    axs6[1,1].set_ylim(bintaur[0], bintaur[-1])
 
 
     # fig6,axs6 = plt.subplots(figsize=(16,10),ncols=3, nrows=2)
@@ -417,6 +431,61 @@ def main_compare_from_csv_laser(patterns_labels=None):
             lh.set_alpha(1)
     fig6.tight_layout()
     fig6.savefig('pc6_fromcsv.png')
+
+
+    fig7, axs7 = plt.subplots(figsize=(24,4), ncols=7, nrows=1)
+    for jdx, (label,dfgroup) in enumerate(dgroups.items()):
+        ax = axs7[0]
+        ax.plot(dfgroup['proj_integ_left']+dfgroup['proj_integ_right'], dfgroup['proj_integ_peak']/(dfgroup['proj_integ_left']+dfgroup['proj_integ_right']), 'o', ms=1, alpha=0.8, color=mpl.cm.jet(jdx / len(dgroups)), label=label)
+        ax = axs7[1]
+        ax.plot(dfgroup['proj_integ_left']+dfgroup['proj_integ_right'], dfgroup['proj_ninth_max_10ns_left']+dfgroup['proj_ninth_max_10ns_right'], 'o', ms=1, alpha=0.8, color=mpl.cm.jet(jdx / len(dgroups)), label=label)
+        ax = axs7[2]
+        ax.plot(dfgroup['proj_integ_left']+dfgroup['proj_integ_right'], dfgroup['proj_e_max_10ns_left'], 'o', ms=1, alpha=0.8, color=mpl.cm.jet(jdx / len(dgroups)), label=label)
+        ax = axs7[3]
+        ax.plot(dfgroup['proj_max_10ns']*1e3, dfgroup['proj_e_max_10ns_left'], 'o', ms=1, alpha=0.8, color=mpl.cm.jet(jdx / len(dgroups)), label=label)
+        ax = axs7[4]
+        ax.plot(dfgroup['proj_ninth_max_10ns_left'], dfgroup['proj_e_max_10ns_left'], 'o', ms=1, alpha=0.8, color=mpl.cm.jet(jdx / len(dgroups)), label=label)
+        ax = axs7[5]
+        ax.plot(dfgroup['proj_e_max_10ns_right'], dfgroup['proj_integ_peak']/(dfgroup['proj_integ_left']+dfgroup['proj_integ_right']), 'o', ms=1, alpha=0.8, color=mpl.cm.jet(jdx / len(dgroups)), label=label)
+        ax = axs7[6]
+        ax.plot(dfgroup['proj_e_max_10ns_left'], dfgroup['proj_integ_peak']/(dfgroup['proj_integ_left']+dfgroup['proj_integ_right']), 'o', ms=1, alpha=0.8, color=mpl.cm.jet(jdx / len(dgroups)), label=label)
+
+    axs7[0].set_xlabel('Integral [V*0.4ns]')
+    axs7[0].set_ylabel('Peak Frac')
+    axs7[0].set_xlim(binq[0], binq[-1])
+    axs7[0].set_ylim(binfrac[0], binfrac[-1])
+    axs7[1].set_xlabel('Integral [V*0.4ns]')
+    axs7[1].set_ylabel(r'Peak Width [$\mu$s]')
+    axs7[1].set_xlim(binq[0], binq[-1])
+    axs7[1].set_ylim(bintaur[0], bintaur[-1])
+    axs7[2].set_xlabel('Integral [V*0.4ns]')
+    axs7[2].set_ylabel(r'$\tau_r$ [$\mu$s]')
+    axs7[2].set_xlim(binq[0], binq[-1])
+    axs7[2].set_ylim(bintaur[0], bintaur[-1])
+    axs7[3].set_xlabel('Peak [mV]')
+    axs7[3].set_ylabel(r'$\tau_r$ [$\mu$s]')
+    axs7[3].set_xlim(binpeak[0], binpeak[-1])
+    axs7[3].set_ylim(bintaur[0], bintaur[-1])
+    axs7[4].set_xlabel(r'$t_r^{0.9}$ [$\mu$s]')
+    axs7[4].set_ylabel(r'$\tau_r$ [$\mu$s]')
+    axs7[4].set_xlim(bintaur[0], bintaur[-1])
+    axs7[4].set_ylim(bintaur[0], bintaur[-1])
+    axs7[5].set_xlabel(r'$\tau_d$ [$\mu$s]')
+    axs7[5].set_ylabel(r'Peak Frac.')
+    axs7[5].set_xlim(bintaud[0], bintaud[-1])
+    axs7[5].set_ylim(binfrac[0], binfrac[-1])
+    axs7[6].set_xlabel(r'$\tau_r$ [$\mu$s]')
+    axs7[6].set_ylabel(r'Peak Frac.')
+    axs7[6].set_xlim(bintaur[0], bintaur[-1])
+    axs7[6].set_ylim(binfrac[0], binfrac[-1])
+    for ax in axs7.flatten():
+        ax.grid()
+        leg = ax.legend(ncols=2, fontsize='xx-small', markerscale=6,handletextpad=0.1, columnspacing=0.2)
+        for lh in leg.legend_handles:
+            lh.set_alpha(1)
+    fig7.tight_layout()
+    fig7.savefig('pc7_fromcsv.png')
+
 
     plt.show()
 
@@ -472,17 +541,19 @@ def main_compare_from_csv_alpha(dirname='Aug27th', t_start=None, t_end=None):
     dfall['ch0_peak_max'] = dfall['ch0_peak_max']*1e3
     dfall['ch1_peak_max'] = dfall['ch1_peak_max']*1e3
     dfall['proj_max'] = dfall['proj_max']*1e3
+    dfall['proj_max_10ns'] = dfall['proj_max_10ns']*1e3
 
-    dfall['corr_integ'] = dfall['proj_integ'] + 0.06*dfall['ch1_ped'] 
-    dfall['corr_max'] = dfall['proj_max'] + 0.065*dfall['ch1_ped'] 
+    # dfall['corr_integ'] = dfall['proj_integ'] + 0.06*dfall['ch1_ped'] 
+    # dfall['corr_max'] = dfall['proj_max'] + 0.065*dfall['ch1_ped'] 
 
 
     binped = np.linspace(-25, 25, 101)
     bintmax = np.arange(-0.1, 0.3, 0.004)
-    bintaur = np.arange(0, 0.451, 0.004)
+    bintaur = np.arange(0, 0.401, 0.004)
     bintaud = np.arange(0, 1.51, 0.01)
-    binq = np.linspace(0,16.1,101)
-    binpeak = np.linspace(0, 80.1, 101)
+    binq = np.linspace(0,30.1,151)
+    binpeak = np.linspace(0, 50.1, 101)
+    binfrac = np.linspace(0, 0.251, 101)
 
     fig,axs = plt.subplots(figsize=(16,10), ncols=3, nrows=2)
     axs = axs.flatten()
@@ -587,14 +658,14 @@ def main_compare_from_csv_alpha(dirname='Aug27th', t_start=None, t_end=None):
 
 
     fig5, axs5 = plt.subplots(figsize=(16,10), ncols=3, nrows=2)
-    for idx,(itau,ibin) in enumerate(zip(['proj_e_max_left','proj_e_max_right'],[bintaur,bintaud])):
+    for idx,(itau,ibin) in enumerate(zip(['proj_e_max_10ns_left','proj_e_max_10ns_right'],[bintaur,bintaud])):
         ax = axs5[idx,0]
-        H,_,_ = np.histogram2d(dfall['proj_integ'], dfall[itau], bins=(binq,ibin))
+        H,_,_ = np.histogram2d(dfall['proj_integ_left']+dfall['proj_integ_right'], dfall[itau], bins=(binq,ibin))
         im = ax.pcolormesh(*np.meshgrid(binq,ibin),np.ma.masked_where(H.T==0, H.T),shading='auto',cmap='jet',norm=mpl.colors.LogNorm())
         fig5.colorbar(im,ax=ax)
         ax.set_xlim(binq[0], binq[-1])
         ax.set_ylim(ibin[0], ibin[-1])
-        ax.set_xlabel('Proj Integral')
+        ax.set_xlabel('Integral')
         ax.set_ylabel(r'$\tau_{r}$ [$\mu$s]' if idx==0 else r'$\tau_{d}$ [$\mu$s]')
         ax = axs5[idx,1]
         H,_,_ = np.histogram2d(dfall['proj_max'], dfall[itau], bins=(binpeak,ibin))
@@ -605,12 +676,18 @@ def main_compare_from_csv_alpha(dirname='Aug27th', t_start=None, t_end=None):
         ax.set_xlabel('Proj Peak Amplitude [mV]')
         ax.set_ylabel(r'$\tau_{r}$ [$\mu$s]' if idx==0 else r'$\tau_{d}$ [$\mu$s]')
         ax = axs5[idx,2]
-        H,_,_ = np.histogram2d(dfall['ch0_peak_max'], dfall[itau], bins=(binpeak,ibin))
-        im = ax.pcolormesh(*np.meshgrid(binpeak,ibin),np.ma.masked_where(H.T==0, H.T),shading='auto',cmap='jet',norm=mpl.colors.LogNorm())
+        # H,_,_ = np.histogram2d(dfall['ch0_peak_max'], dfall[itau], bins=(binpeak,ibin))
+        # im = ax.pcolormesh(*np.meshgrid(binpeak,ibin),np.ma.masked_where(H.T==0, H.T),shading='auto',cmap='jet',norm=mpl.colors.LogNorm())
+        # fig5.colorbar(im,ax=ax)
+        # ax.set_xlim(binpeak[0], binpeak[-1])
+        # ax.set_ylim(ibin[0], ibin[-1])
+        # ax.set_xlabel('ch0 peak Amplitude [mV]')
+        H,_,_ = np.histogram2d(dfall['proj_integ_peak'], dfall[itau], bins=(binq/10,ibin))
+        im = ax.pcolormesh(*np.meshgrid(binq/10,ibin),np.ma.masked_where(H.T==0, H.T),shading='auto',cmap='jet',norm=mpl.colors.LogNorm())
         fig5.colorbar(im,ax=ax)
-        ax.set_xlim(binpeak[0], binpeak[-1])
+        ax.set_xlim(binq[0]/10, binq[-1]/10)
         ax.set_ylim(ibin[0], ibin[-1])
-        ax.set_xlabel('ch0 peak Amplitude [mV]')
+        ax.set_xlabel('Integral around Peak')
         ax.set_ylabel(r'$\tau_{r}$ [$\mu$s]' if idx==0 else r'$\tau_{d}$ [$\mu$s]')
     for ax in axs5.flatten():
         ax.grid()
@@ -669,28 +746,116 @@ def main_compare_from_csv_alpha(dirname='Aug27th', t_start=None, t_end=None):
     # axs6[1,2].set_xlabel('Peak Amplitude')
     # axs6[1,2].set_xlim(binpeak[0], binpeak[-1])
 
-    fig6, axs6 = plt.subplots(figsize=(16,7), ncols=2, nrows=1)
-    ax = axs6[0]
-    H,_,_ = np.histogram2d(dfall['proj_integ'], dfall['proj_max'], bins=(binq,binpeak))
+    fig6, axs6 = plt.subplots(figsize=(16,14), ncols=2, nrows=2)
+    ax = axs6[0,0]
+    H,_,_ = np.histogram2d(dfall['proj_integ_left']+dfall['proj_integ_right'], dfall['proj_max_10ns'], bins=(binq,binpeak))
     im = ax.pcolormesh(*np.meshgrid(binq,binpeak),np.ma.masked_where(H.T==0, H.T),shading='auto',cmap='jet',norm=mpl.colors.LogNorm())
     fig6.colorbar(im,ax=ax)
-    ax = axs6[1]
-    H,_,_ = np.histogram2d(dfall['proj_e_max_right'], dfall['proj_e_max_left'], bins=(bintaud,bintaur))
+    ax.set_xlabel('Integral')
+    ax.set_ylabel('Peak Amplitude [mV]')
+    ax.set_xlim(binq[0], binq[-1])
+    ax.set_ylim(binpeak[0], binpeak[-1])
+    ax = axs6[0,1]
+    H,_,_ = np.histogram2d(dfall['proj_e_max_10ns_right'], dfall['proj_e_max_10ns_left'], bins=(bintaud,bintaur))
     im = ax.pcolormesh(*np.meshgrid(bintaud,bintaur),np.ma.masked_where(H.T==0, H.T),shading='auto',cmap='jet',norm=mpl.colors.LogNorm())
     fig6.colorbar(im,ax=ax)
-    axs6[0].set_xlabel('proj Integral')
-    axs6[0].set_ylabel('proj Peak Amplitude [mV]')
-    axs6[0].set_xlim(binq[0], binq[-1])
-    axs6[0].set_ylim(binpeak[0], binpeak[-1])
-    axs6[1].set_xlabel(r'$\tau_{d}$ [$\mu$s]')
-    axs6[1].set_ylabel(r'$\tau_{r}$ [$\mu$s]')
-    axs6[1].set_xlim(bintaud[0], bintaud[-1])
-    axs6[1].set_ylim(bintaur[0], bintaur[-1])
+    ax.set_xlabel(r'$\tau_{d}$ [$\mu$s]')
+    ax.set_ylabel(r'$\tau_{r}$ [$\mu$s]')
+    ax.set_xlim(bintaud[0], bintaud[-1])
+    ax.set_ylim(bintaur[0], bintaur[-1])
+    ax = axs6[1,0]
+    H,_,_ = np.histogram2d(dfall['proj_e_max_10ns_left'], dfall['proj_ninth_max_10ns_left'], bins=(bintaur,bintaur))
+    im = ax.pcolormesh(*np.meshgrid(bintaur,bintaur),np.ma.masked_where(H.T==0, H.T),shading='auto',cmap='jet',norm=mpl.colors.LogNorm())
+    fig6.colorbar(im,ax=ax)
+    ax.set_xlabel(r'$\tau_{r}$ [$\mu$s]')
+    ax.set_ylabel(r'$t_{r}^{0.9}$ [$\mu$s]')
+    ax.set_xlim(bintaur[0], bintaur[-1])
+    ax.set_ylim(bintaur[0], bintaur[-1])
+    ax = axs6[1,1]
+    H,_,_ = np.histogram2d(dfall['proj_e_max_10ns_right'], dfall['proj_ninth_max_10ns_right'], bins=(bintaud,bintaur))
+    im = ax.pcolormesh(*np.meshgrid(bintaud,bintaur),np.ma.masked_where(H.T==0, H.T),shading='auto',cmap='jet',norm=mpl.colors.LogNorm())
+    fig6.colorbar(im,ax=ax)
+    ax.set_xlabel(r'$\tau_{d}$ [$\mu$s]')
+    ax.set_ylabel(r'$t_{d}^{0.9}$ [$\mu$s]')
+    ax.set_xlim(bintaud[0], bintaud[-1])
+    ax.set_ylim(bintaur[0], bintaur[-1])
     for ax in axs6.flatten():
         ax.grid()
     fig6.tight_layout()
     fig6.savefig('pc6_fromcsv_alpha.png')
     
+
+    fig7, axs7 = plt.subplots(figsize=(24,12), ncols=7, nrows=4)
+    for idx,icut in enumerate(['0.25>proj_integ_peak and 0.5>proj_e_max_10ns_right',
+                               '1.0<proj_e_max_10ns_right',
+                               '1.0>proj_e_max_10ns_right and 0.25<proj_integ_peak<8.0',
+                               '1.0<proj_integ_peak and 0.5>proj_e_max_10ns_right']):
+        dfcut = dfall.query(icut)
+        ax = axs7[idx,0]
+        H,_,_ = np.histogram2d(dfcut['proj_integ_left']+dfcut['proj_integ_right'], dfcut['proj_integ_peak']/(dfcut['proj_integ_left']+dfcut['proj_integ_right']), bins=(binq,binfrac))
+        im = ax.pcolormesh(*np.meshgrid(binq,binfrac),np.ma.masked_where(H.T==0, H.T),shading='auto',cmap='jet')#,norm=mpl.colors.LogNorm())
+        fig7.colorbar(im,ax=ax)
+        ax.set_xlabel('Integral [V*0.4ns]')
+        ax.set_ylabel('Peak Frac.')
+        ax.set_xlim(binq[0], binq[-1])
+        ax.set_ylim(binfrac[0], binfrac[-1])
+        ax = axs7[idx,1]
+        H,_,_ = np.histogram2d(dfcut['proj_integ_left']+dfcut['proj_integ_right'], dfcut['proj_ninth_max_10ns_right']+dfcut['proj_ninth_max_10ns_left'], bins=(binq,bintaur))
+        im = ax.pcolormesh(*np.meshgrid(binq,bintaur),np.ma.masked_where(H.T==0, H.T),shading='auto',cmap='jet')#,norm=mpl.colors.LogNorm())
+        fig7.colorbar(im,ax=ax)
+        ax.set_xlabel('Integral [V*0.4ns]')
+        ax.set_ylabel('Peak Width [$\mu$s]')
+        ax.set_xlim(binq[0], binq[-1])
+        ax.set_ylim(bintaur[0], bintaur[-1])
+        ax = axs7[idx,2]
+        H,_,_ = np.histogram2d(dfcut['proj_integ_left']+dfcut['proj_integ_right'], dfcut['proj_e_max_10ns_left'], bins=(binq,bintaur))
+        im = ax.pcolormesh(*np.meshgrid(binq,bintaur),np.ma.masked_where(H.T==0, H.T),shading='auto',cmap='jet')#,norm=mpl.colors.LogNorm())
+        fig7.colorbar(im,ax=ax)
+        ax.set_xlabel('Integral [V*0.4ns]')
+        ax.set_ylabel(r'$\tau_r$ [$\mu$s]')
+        ax.set_xlim(binq[0], binq[-1])
+        ax.set_ylim(bintaur[0], bintaur[-1])
+        ax = axs7[idx,3]
+        H,_,_ = np.histogram2d(dfcut['proj_max_10ns'], dfcut['proj_e_max_10ns_left'], bins=(binpeak,bintaur))
+        im = ax.pcolormesh(*np.meshgrid(binpeak,bintaur),np.ma.masked_where(H.T==0, H.T),shading='auto',cmap='jet')#,norm=mpl.colors.LogNorm())
+        fig7.colorbar(im,ax=ax)
+        ax.set_xlabel('Peak [mV]')
+        ax.set_ylabel(r'$\tau_r$ [$\mu$s]')
+        ax.set_xlim(binpeak[0], binpeak[-1])
+        ax.set_ylim(bintaur[0], bintaur[-1])
+        ax = axs7[idx,4]
+        H,_,_ = np.histogram2d(dfcut['proj_ninth_max_10ns_left'], dfcut['proj_e_max_10ns_left'], bins=(bintaur,bintaur))
+        im = ax.pcolormesh(*np.meshgrid(bintaur,bintaur),np.ma.masked_where(H.T==0, H.T),shading='auto',cmap='jet')#,norm=mpl.colors.LogNorm())
+        fig7.colorbar(im,ax=ax)
+        ax.set_xlabel(r'$t_{r}^{0.9}$ [$\mu$s]')
+        ax.set_ylabel(r'$\tau_r$ [$\mu$s]')
+        ax.set_xlim(bintaur[0], bintaur[-1])
+        ax.set_ylim(bintaur[0], bintaur[-1])
+        ax = axs7[idx,5]
+        H,_,_ = np.histogram2d(dfcut['proj_e_max_10ns_right'], dfcut['proj_integ_peak']/(dfcut['proj_integ_left']+dfcut['proj_integ_right']), bins=(bintaud,binfrac))
+        im = ax.pcolormesh(*np.meshgrid(bintaud,binfrac),np.ma.masked_where(H.T==0, H.T),shading='auto',cmap='jet')#,norm=mpl.colors.LogNorm())
+        fig7.colorbar(im,ax=ax)
+        ax.set_xlabel(r'$\tau_d$ [$\mu$s]')
+        ax.set_ylabel('Peak Frac.')
+        ax.set_xlim(bintaud[0], bintaud[-1])
+        ax.set_ylim(binfrac[0], binfrac[-1])
+        ax = axs7[idx,6]
+        H,_,_ = np.histogram2d(dfcut['proj_e_max_10ns_left'], dfcut['proj_integ_peak']/(dfcut['proj_integ_left']+dfcut['proj_integ_right']), bins=(bintaur,binfrac))
+        im = ax.pcolormesh(*np.meshgrid(bintaur,binfrac),np.ma.masked_where(H.T==0, H.T),shading='auto',cmap='jet')#,norm=mpl.colors.LogNorm())
+        fig7.colorbar(im,ax=ax)
+        ax.set_xlabel(r'$\tau_r$ [$\mu$s]')
+        ax.set_ylabel('Peak Frac.')
+        ax.set_xlim(bintaur[0], bintaur[-1])
+        ax.set_ylim(binfrac[0], binfrac[-1])
+        for ax in axs7[idx,1:2]:
+            ax.set_title(f'Cut: {icut}', fontsize='small')
+    for ax in axs7.flatten():
+        ax.grid()
+    fig7.tight_layout()
+    fig7.savefig('pc7_fromcsv_alpha.png')
+
+
+
     plt.show()
 
 

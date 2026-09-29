@@ -17,9 +17,36 @@ import ds_style
 
 VERBOSE = 1
 
-def _first_or_nan(idx_arr):
-    """First element of a np.where(...)[0] result, or nan if no crossing was found."""
-    return idx_arr[0] if len(idx_arr) > 0 else np.nan
+def _interp_crossing(y, threshold, search_ge):
+    """Find where 1D array `y` crosses `threshold`, at sub-sample resolution.
+
+    search_ge=True  -- first index i where y[i] >= threshold (rising crossing,
+                       used for the left/rising side of a pulse).
+    search_ge=False -- first index i where y[i] < threshold (falling crossing,
+                       used for the right/falling side).
+
+    Once that first index i is found, the crossing is linearly interpolated
+    between the straddling samples (i-1, y[i-1]) and (i, y[i]) -- i.e. the
+    fractional index where the line between them equals `threshold` -- rather
+    than snapping to the sample index i itself. This is the same formula for
+    both directions since it just solves for where a line hits `threshold`.
+
+    Returns a float (fractional index into y). Falls back to the plain
+    integer index if i==0 (no preceding sample to interpolate against) or if
+    y[i-1]==y[i] (degenerate, would divide by zero). Returns np.nan if no
+    crossing was found at all.
+    """
+    idx = np.where(y >= threshold)[0] if search_ge else np.where(y < threshold)[0]
+    if len(idx) == 0:
+        return np.nan
+    i = idx[0]
+    if i == 0:
+        return 0.0
+    y0, y1 = y[i-1], y[i]
+    if y1 == y0:
+        return float(i)
+    frac = (threshold - y0) / (y1 - y0)
+    return (i - 1) + frac
 
 def _frac_to_float(s):
     """Parse a label like '1', '1/2', '1/400' into a float (1.0, 0.5, 0.0025, ...)."""
@@ -124,12 +151,20 @@ def analyze_waveforms(fn_, rebin_factor=1, flagAlpha=False):
     tbin_meas = (np.arange(npts//rebin_factor) - (npts//rebin_factor)*ref_position/100.)/(sample_rate/rebin_factor)
     tbin_meas *= 1e6
 
+    rebin_factor_10ns = int(10e-9*sample_rate)
+    sample_rate_10ns = sample_rate / rebin_factor_10ns
+    pedbin_meas1_10ns = pedbin[1] // rebin_factor_10ns
+    tbin_meas_10ns = (np.arange(npts//rebin_factor_10ns) - (npts//rebin_factor_10ns)*ref_position/100.)/(sample_rate/rebin_factor_10ns)
+    tbin_meas_10ns *= 1e6
+
     v0 = data['ch0']
     v1 = data['ch1']
     vc = v0 + 1j*v1
     # vc = np.exp(-1j*np.pi/2)*vc
 
     data_corr = {'ch0': np.real(vc), 'ch1': np.imag(vc)}
+    data_corr_meas = {'ch0': _rebin_waveforms(data_corr['ch0'], rebin_factor),
+                      'ch1': _rebin_waveforms(data_corr['ch1'], rebin_factor)}
 
     dres = {}
     for ich in range(2):
@@ -148,32 +183,51 @@ def analyze_waveforms(fn_, rebin_factor=1, flagAlpha=False):
 
         # integ = data[f'ch{ich}'][:,pedbin[1]:bin1000].sum(axis=1) - ped*(bin1000-pedbin[1])
         integ = wf_meas[:,pedbin[1]//rebin_factor:bin1000//rebin_factor].sum(axis=1)
-        integ_left = np.array([wf_meas[idx, pedbin[1]//rebin_factor:peak_max_t[idx]].sum() for idx in range(nwf)])
+        integ_left = np.array([wf_meas[idx, peak_max_t[idx]-int(250e-9*sample_rate_meas):peak_max_t[idx]].sum() for idx in range(nwf)])
         integ_right = np.array([wf_meas[idx, peak_max_t[idx]:peak_max_t[idx]+int(1000e-9*sample_rate_meas)].sum() for idx in range(nwf)])
+        integ_peak = np.array([wf_meas[idx, peak_max_t[idx]-int(25e-9*sample_rate_meas):peak_max_t[idx]+int(25e-9*sample_rate_meas)].sum() for idx in range(nwf)])
 
-        half_max_left = [peak_max_t[idx] - _first_or_nan(np.where(wf_meas[idx][:peak_max_t[idx]+1] >= peak_max[idx]/2)[0]) for idx in range(nwf)]
-        # first bin below peak_max/2 after the peak (falling edge crossing)
-        half_max_right = [_first_or_nan(np.where(wf_meas[idx][peak_max_t[idx]:] < peak_max[idx]/2)[0]) for idx in range(nwf)]
-        ninth_max_left = [peak_max_t[idx] - _first_or_nan(np.where(wf_meas[idx][:peak_max_t[idx]+1] >= peak_max[idx]/9)[0]) for idx in range(nwf)]
-        # first bin below peak_max/9 after the peak (falling edge crossing)
-        ninth_max_right = [_first_or_nan(np.where(wf_meas[idx][peak_max_t[idx]:] < peak_max[idx]/9)[0]) for idx in range(nwf)]
-        e_max_left = [peak_max_t[idx] - _first_or_nan(np.where(wf_meas[idx][:peak_max_t[idx]+1] >= peak_max[idx]/np.e)[0]) for idx in range(nwf)]
-        # first bin below peak_max/9 after the peak (falling edge crossing)
-        e_max_right = [_first_or_nan(np.where(wf_meas[idx][peak_max_t[idx]:] < peak_max[idx]/np.e)[0]) for idx in range(nwf)]
+        half_max_left = [peak_max_t[idx] - _interp_crossing(wf_meas[idx][:peak_max_t[idx]+1], peak_max[idx]/2, True) for idx in range(nwf)]
+        half_max_right = [0 + _interp_crossing(wf_meas[idx][peak_max_t[idx]:], peak_max[idx]/2, False) for idx in range(nwf)]
+        oneth_max_left = [peak_max_t[idx] - _interp_crossing(wf_meas[idx][:peak_max_t[idx]+1], peak_max[idx]*0.1, True) for idx in range(nwf)]
+        oneth_max_right = [0 + _interp_crossing(wf_meas[idx][peak_max_t[idx]:], peak_max[idx]*0.1, False) for idx in range(nwf)]
+        ninth_max_left = [peak_max_t[idx] - _interp_crossing(wf_meas[idx][:peak_max_t[idx]+1], peak_max[idx]*0.9, True) for idx in range(nwf)]
+        ninth_max_right = [0 + _interp_crossing(wf_meas[idx][peak_max_t[idx]:], peak_max[idx]*0.9, False) for idx in range(nwf)]
+        e_max_left = [peak_max_t[idx] - _interp_crossing(wf_meas[idx][:peak_max_t[idx]+1], peak_max[idx]/np.e, True) for idx in range(nwf)]
+        e_max_right = [0 + _interp_crossing(wf_meas[idx][peak_max_t[idx]:], peak_max[idx]/np.e, False) for idx in range(nwf)]
+
+        wf_10ns = _rebin_waveforms(wf_corr, rebin_factor_10ns)
+        peak_max_10ns = np.max(wf_10ns,axis=1)
+        peak_max_t_10ns = np.array([np.argmax(wf_10ns[idx]) for idx in range(nwf)])
+
+        oneth_max_10ns_left = [peak_max_t_10ns[idx] - _interp_crossing(wf_10ns[idx][:peak_max_t_10ns[idx]+1], peak_max_10ns[idx]*0.1, True) for idx in range(nwf)]
+        oneth_max_10ns_right = [0 + _interp_crossing(wf_10ns[idx][peak_max_t_10ns[idx]:], peak_max_10ns[idx]*0.1, False) for idx in range(nwf)]
+        ninth_max_10ns_left = [peak_max_t_10ns[idx] - _interp_crossing(wf_10ns[idx][:peak_max_t_10ns[idx]+1], peak_max_10ns[idx]*0.9, True) for idx in range(nwf)]
+        ninth_max_10ns_right = [0 + _interp_crossing(wf_10ns[idx][peak_max_t_10ns[idx]:], peak_max_10ns[idx]*0.9, False) for idx in range(nwf)]
+        e_max_10ns_left = [peak_max_t_10ns[idx] - _interp_crossing(wf_10ns[idx][:peak_max_t_10ns[idx]+1], peak_max_10ns[idx]/np.e, True) for idx in range(nwf)]
+        e_max_10ns_right = [0 + _interp_crossing(wf_10ns[idx][peak_max_t_10ns[idx]:], peak_max_10ns[idx]/np.e, False) for idx in range(nwf)]
+
 
         dres[f'ch{ich}_ped'] = ped
         dres[f'ch{ich}_peak_max'] = peak_max
-        # times in nanoseconds relative to the trigger position, not bin numbers
         dres[f'ch{ich}_peak_max_t'] = tbin_meas[peak_max_t]
+        dres[f'ch{ich}_peak_max_10ns'] = peak_max_10ns
+        dres[f'ch{ich}_peak_max_t_10ns'] = tbin_meas_10ns[peak_max_t_10ns]
         dres[f'ch{ich}_half_max_left'] = np.array(half_max_left, dtype=float) / sample_rate_meas * 1e6
         dres[f'ch{ich}_half_max_right'] = np.array(half_max_right, dtype=float) / sample_rate_meas * 1e6
         dres[f'ch{ich}_ninth_max_left'] = np.array(ninth_max_left, dtype=float) / sample_rate_meas * 1e6
         dres[f'ch{ich}_ninth_max_right'] = np.array(ninth_max_right, dtype=float) / sample_rate_meas * 1e6
+        dres[f'ch{ich}_oneth_max_left'] = np.array(oneth_max_left, dtype=float) / sample_rate_meas * 1e6
+        dres[f'ch{ich}_oneth_max_right'] = np.array(oneth_max_right, dtype=float) / sample_rate_meas * 1e6
+        dres[f'ch{ich}_ninth_max_10ns_left'] = np.array(ninth_max_10ns_left, dtype=float) / sample_rate_10ns * 1e6
+        dres[f'ch{ich}_ninth_max_10ns_right'] = np.array(ninth_max_10ns_right, dtype=float) / sample_rate_10ns * 1e6
         dres[f'ch{ich}_e_max_left'] = np.array(e_max_left, dtype=float) / sample_rate_meas * 1e6
         dres[f'ch{ich}_e_max_right'] = np.array(e_max_right, dtype=float) / sample_rate_meas * 1e6
-        dres[f'ch{ich}_integ'] = integ
-        dres[f'ch{ich}_integ_left'] = integ_left
-        dres[f'ch{ich}_integ_right'] = integ_right
+        dres[f'ch{ich}_e_max_10ns_left'] = np.array(e_max_10ns_left, dtype=float) / sample_rate_10ns * 1e6
+        dres[f'ch{ich}_e_max_10ns_right'] = np.array(e_max_10ns_right, dtype=float) / sample_rate_10ns * 1e6
+        dres[f'ch{ich}_integ'] = integ*rebin_factor
+        dres[f'ch{ich}_integ_left'] = integ_left*rebin_factor
+        dres[f'ch{ich}_integ_right'] = integ_right*rebin_factor
 
     # vc_corr/vc_proj stay at full resolution (used for plotting and for
     # proj_integ, which -- like ch{0,1}_integ -- is always measured on the
@@ -184,19 +238,32 @@ def analyze_waveforms(fn_, rebin_factor=1, flagAlpha=False):
     proj_max = np.max(np.abs(vc_corr_meas),axis=1)
     proj_max_t = np.array([np.argmax(np.abs(vc_corr_meas[idx])) for idx in range(nwf)])
     proj_theta = np.angle(vc_corr_meas[np.arange(nwf), proj_max_t])
-    vc_proj = np.real(vc_corr * np.exp(-1j*proj_theta.reshape(-1,1)))
+    # vc_proj = np.real(vc_corr * np.exp(-1j*proj_theta.reshape(-1,1)))
     vc_proj_meas = np.real(vc_corr_meas * np.exp(-1j*proj_theta.reshape(-1,1)))
-    proj_half_max_left = [proj_max_t[idx] - _first_or_nan(np.where(vc_proj_meas[idx][:proj_max_t[idx]+1] >= proj_max[idx]/2)[0]) for idx in range(nwf)]
-    # first bin below proj_max/2 after the peak (falling edge crossing)
-    proj_half_max_right = [_first_or_nan(np.where(vc_proj_meas[idx][proj_max_t[idx]:] < proj_max[idx]/2)[0]) for idx in range(nwf)]
-    proj_nineth_max_left = [proj_max_t[idx] - _first_or_nan(np.where(vc_proj_meas[idx][:proj_max_t[idx]+1] >= proj_max[idx]/9)[0]) for idx in range(nwf)]
-    proj_e_max_left = [proj_max_t[idx] - _first_or_nan(np.where(vc_proj_meas[idx][:proj_max_t[idx]+1] >= proj_max[idx]/np.e)[0]) for idx in range(nwf)]
-    # first bin below proj_max/9 after the peak (falling edge crossing)
-    proj_nineth_max_right = [_first_or_nan(np.where(vc_proj_meas[idx][proj_max_t[idx]:] < proj_max[idx]/9)[0]) for idx in range(nwf)]
-    proj_e_max_right = [_first_or_nan(np.where(vc_proj_meas[idx][proj_max_t[idx]:] < proj_max[idx]/np.e)[0]) for idx in range(nwf)]
+    proj_half_max_left = [proj_max_t[idx] - _interp_crossing(vc_proj_meas[idx][:proj_max_t[idx]+1], proj_max[idx]/2, True) for idx in range(nwf)]
+    proj_half_max_right = [0 + _interp_crossing(vc_proj_meas[idx][proj_max_t[idx]:], proj_max[idx]/2, False) for idx in range(nwf)]
+    proj_nineth_max_left = [proj_max_t[idx] - _interp_crossing(vc_proj_meas[idx][:proj_max_t[idx]+1], proj_max[idx]*0.9, True) for idx in range(nwf)]
+    proj_nineth_max_right = [0 + _interp_crossing(vc_proj_meas[idx][proj_max_t[idx]:], proj_max[idx]*0.9, False) for idx in range(nwf)]
+    proj_oneth_max_left = [proj_max_t[idx] - _interp_crossing(vc_proj_meas[idx][:proj_max_t[idx]+1], proj_max[idx]*0.1, True) for idx in range(nwf)]
+    proj_oneth_max_right = [0 + _interp_crossing(vc_proj_meas[idx][proj_max_t[idx]:], proj_max[idx]*0.1, False) for idx in range(nwf)]
+    proj_e_max_left = [proj_max_t[idx] - _interp_crossing(vc_proj_meas[idx][:proj_max_t[idx]+1], proj_max[idx]/np.e, True) for idx in range(nwf)]
+    proj_e_max_right = [0 + _interp_crossing(vc_proj_meas[idx][proj_max_t[idx]:], proj_max[idx]/np.e, False) for idx in range(nwf)]
     proj_integ = np.array([np.sum(vc_proj_meas[idx][pedbin[1]//rebin_factor:bin1000//rebin_factor]) for idx in range(nwf)])
-    proj_integ_left = np.array([np.sum(vc_proj_meas[idx][pedbin[1]//rebin_factor:proj_max_t[idx]]) for idx in range(nwf)])
+    proj_integ_left = np.array([np.sum(vc_proj_meas[idx][proj_max_t[idx]-int(250e-9*sample_rate_meas):proj_max_t[idx]]) for idx in range(nwf)])
     proj_integ_right = np.array([np.sum(vc_proj_meas[idx][proj_max_t[idx]:proj_max_t[idx]+int(1000e-9*sample_rate_meas)]) for idx in range(nwf)])
+    proj_integ_peak = np.array([np.sum(vc_proj_meas[idx][proj_max_t[idx]-int(25e-9*sample_rate_meas):proj_max_t[idx]+int(25e-9*sample_rate_meas)]) for idx in range(nwf)])
+
+    vc_corr_10ns = _rebin_waveforms(vc_corr, rebin_factor_10ns)
+    proj_max_10ns = np.max(np.abs(vc_corr_10ns),axis=1)
+    proj_max_t_10ns = np.array([np.argmax(np.abs(vc_corr_10ns[idx])) for idx in range(nwf)])
+    proj_theta_10ns = np.angle(vc_corr_10ns[np.arange(nwf), proj_max_t_10ns])
+    vc_proj_10ns = np.real(vc_corr_10ns * np.exp(-1j*proj_theta_10ns.reshape(-1,1)))
+    proj_oneth_max_10ns_left = [proj_max_t_10ns[idx] - _interp_crossing(vc_proj_10ns[idx][:proj_max_t_10ns[idx]+1], proj_max_10ns[idx]*0.1, True) for idx in range(nwf)]
+    proj_oneth_max_10ns_right = [0 + _interp_crossing(vc_proj_10ns[idx][proj_max_t_10ns[idx]:], proj_max_10ns[idx]*0.1, False) for idx in range(nwf)]   
+    proj_ninth_max_10ns_left = [proj_max_t_10ns[idx] - _interp_crossing(vc_proj_10ns[idx][:proj_max_t_10ns[idx]+1], proj_max_10ns[idx]*0.9, True) for idx in range(nwf)]
+    proj_ninth_max_10ns_right = [0 + _interp_crossing(vc_proj_10ns[idx][proj_max_t_10ns[idx]:], proj_max_10ns[idx]*0.9, False) for idx in range(nwf)]   
+    proj_e_max_10ns_left = [proj_max_t_10ns[idx] - _interp_crossing(vc_proj_10ns[idx][:proj_max_t_10ns[idx]+1], proj_max_10ns[idx]/np.e, True) for idx in range(nwf)]
+    proj_e_max_10ns_right = [0 + _interp_crossing(vc_proj_10ns[idx][proj_max_t_10ns[idx]:], proj_max_10ns[idx]/np.e, False) for idx in range(nwf)]   
 
     dres['proj_max'] = proj_max
     dres['proj_max_t'] = tbin_meas[proj_max_t]
@@ -205,14 +272,26 @@ def analyze_waveforms(fn_, rebin_factor=1, flagAlpha=False):
     dres['proj_half_max_right'] = (np.array(proj_half_max_right, dtype=float)) / sample_rate_meas * 1e6
     dres['proj_ninth_max_left'] = (np.array(proj_nineth_max_left, dtype=float)) / sample_rate_meas * 1e6
     dres['proj_ninth_max_right'] = (np.array(proj_nineth_max_right, dtype=float)) / sample_rate_meas * 1e6
+    dres['proj_oneth_max_left'] = (np.array(proj_oneth_max_left, dtype=float)) / sample_rate_meas * 1e6
+    dres['proj_oneth_max_right'] = (np.array(proj_oneth_max_right, dtype=float)) / sample_rate_meas * 1e6
     dres['proj_e_max_left'] = (np.array(proj_e_max_left, dtype=float)) / sample_rate_meas * 1e6
     dres['proj_e_max_right'] = (np.array(proj_e_max_right, dtype=float)) / sample_rate_meas * 1e6
     dres['proj_integ'] = proj_integ
-    dres['proj_integ_left'] = proj_integ_left
-    dres['proj_integ_right'] = proj_integ_right
-
+    dres['proj_integ_left'] = proj_integ_left*rebin_factor
+    dres['proj_integ_right'] = proj_integ_right*rebin_factor
+    dres['proj_integ_peak'] = proj_integ_peak*rebin_factor
+    dres['proj_max_10ns'] = proj_max_10ns
+    dres['proj_max_t_10ns'] = tbin_meas_10ns[proj_max_t_10ns]
+    dres['proj_theta_10ns'] = proj_theta_10ns
+    dres['proj_oneth_max_10ns_left'] = (np.array(proj_oneth_max_10ns_left, dtype=float)) / sample_rate_10ns * 1e6
+    dres['proj_oneth_max_10ns_right'] = (np.array(proj_oneth_max_10ns_right, dtype=float)) / sample_rate_10ns * 1e6
+    dres['proj_ninth_max_10ns_left'] = (np.array(proj_ninth_max_10ns_left, dtype=float)) / sample_rate_10ns * 1e6
+    dres['proj_ninth_max_10ns_right'] = (np.array(proj_ninth_max_10ns_right, dtype=float)) / sample_rate_10ns * 1e6
+    dres['proj_e_max_10ns_left'] = (np.array(proj_e_max_10ns_left, dtype=float)) / sample_rate_10ns * 1e6
+    dres['proj_e_max_10ns_right'] = (np.array(proj_e_max_10ns_right, dtype=float)) / sample_rate_10ns * 1e6
     dfres = pd.DataFrame(dres)
-    return dfres, data_corr, vc_proj, tbin, sample_rate, nwf
+    # return dfres, data_corr, vc_proj, tbin, sample_rate, nwf
+    return dfres, data_corr_meas, vc_proj_meas, tbin_meas, sample_rate_meas, nwf
 
 
 def main_singlefile(fn_, rebin_factor=1, flagAlpha=False):
@@ -225,35 +304,37 @@ def main_singlefile(fn_, rebin_factor=1, flagAlpha=False):
     vc_avg = np.mean(vc_proj,axis=0)
 
     fig_scale = 1.0
+    ncol, nrow = 2, 2
     ##### Plot in IQ plane
-    fig,axs = plt.subplots(figsize=(14/fig_scale,12/fig_scale),ncols=4, nrows=4,sharex=True,sharey=True)
+    fig,axs = plt.subplots(figsize=(14/fig_scale,12/fig_scale),ncols=ncol, nrows=nrow,sharex=True,sharey=True)
     nax = len(axs.flatten())
     rb = 5
     vt = tbin.reshape(-1,rb).mean(axis=1)
     for idx in range(min(nax,nwf)):
-        irow = idx//4
-        icol = idx%4
+        irow = idx//ncol
+        icol = idx%nrow
         if idx>=nwf:
             axs[irow,icol].axis('off')
             continue
 
-        v0 = data_corr['ch0'][idx].reshape(-1,rb).mean(axis=1)
-        v1 = data_corr['ch1'][idx].reshape(-1,rb).mean(axis=1)
+        iev = idx*2            
+        v0 = data_corr['ch0'][iev].reshape(-1,rb).mean(axis=1)
+        v1 = data_corr['ch1'][iev].reshape(-1,rb).mean(axis=1)
         vc = v0 + 1j*v1
         # vc = np.exp(-1j*np.pi/2)*vc
 
         ax = axs[irow,icol]
         im = ax.scatter(np.real(vc)*1e3, np.imag(vc)*1e3, c=vt, cmap='viridis')
-        ax.plot(dfres['ch0_ped'][idx]*1e3, dfres['ch1_ped'][idx]*1e3, 'x', ms=10, color='r', label='ped')
-        ax.plot((dfres['proj_max'][idx]*np.cos(dfres['proj_theta'][idx])+dfres['ch0_ped'][idx])*1e3, (dfres['proj_max'][idx]*np.sin(dfres['proj_theta'][idx])+dfres['ch1_ped'][idx])*1e3, '*', ms=10, color='r', label='proj max')
-        if irow==3:
+        ax.plot(dfres['ch0_ped'][iev]*1e3, dfres['ch1_ped'][iev]*1e3, 'x', ms=10, color='r', label='ped')
+        ax.plot((dfres['proj_max'][iev]*np.cos(dfres['proj_theta'][iev])+dfres['ch0_ped'][iev])*1e3, (dfres['proj_max'][iev]*np.sin(dfres['proj_theta'][iev])+dfres['ch1_ped'][iev])*1e3, '*', ms=10, color='r', label='proj max')
+        if irow==nrow-1:
             ax.set_xlabel('I [mV]')
         if icol==0:
             ax.set_ylabel('Q [mV]')
         cbar = fig.colorbar(im, ax=ax)
-        if icol==3:
+        if True: #icol==ncol-1:
             cbar.set_label('time [$\mu$s]')
-        ax.set_title(f'Event #{idx}')
+        ax.set_title(f'Event #{iev}')
         ax.grid()
 
     fig.tight_layout()
@@ -261,25 +342,26 @@ def main_singlefile(fn_, rebin_factor=1, flagAlpha=False):
 
 
     #### Plot 1D waveforms
-    fig2,axs2 = plt.subplots(figsize=(14/fig_scale,12/fig_scale),ncols=4, nrows=4,sharex=True,sharey=True)
+    fig2,axs2 = plt.subplots(figsize=(14/fig_scale,12/fig_scale),ncols=ncol, nrows=nrow,sharex=True,sharey=True)
     nax = len(axs2.flatten())
     for idx in range(min(nax,nwf)):
-        irow = idx//4
-        icol = idx%4
+        irow = idx//ncol
+        icol = idx%nrow
         if idx>=nwf:
             axs2[irow,icol].axis('off')
             continue
 
+        iev = idx*2
         ax = axs2[irow,icol]
-        ax.plot(tbin, data_corr['ch0'][idx]*1e3, label='I')
-        ax.plot(tbin, data_corr['ch1'][idx]*1e3, label='Q')
-        ax.plot(tbin, vc_proj[idx]*1e3, label='Proj')
+        ax.plot(tbin, data_corr['ch0'][iev]*1e3, label='I')
+        ax.plot(tbin, data_corr['ch1'][iev]*1e3, label='Q')
+        ax.plot(tbin, vc_proj[iev]*1e3, label='Proj')
 
-        if irow==3:
+        if irow==nrow-1:
             ax.set_xlabel('time [$\mu$s]')
         if icol==0:
             ax.set_ylabel('voltage [mV]')
-        ax.set_title(f'Event #{idx}')
+        ax.set_title(f'Event #{iev}')
         ax.grid()
         ax.legend(fontsize='small')
 
@@ -468,14 +550,35 @@ def main_compare_distance(patterns_labels=None, rebin_factor=1):
         #     ('Sep1st/wf_260901_17055?_*.npz', '5.30 K'),
         #     ('Sep1st/wf_260901_17284?_*.npz', '5.95 K'),
         # ]
-        patterns_labels = [ # Temp scan at (x,z) = (3.50, 6.00) mm
-            ('Sep1st/wf_260901_14560?_*.npz', '3.90 K'),
-            ('Sep1st/wf_260901_15351?_*.npz', '4.20 K'),
-            ('Sep1st/wf_260901_16164?_*.npz', '4.55 K'),
-            ('Sep1st/wf_260901_16431?_*.npz', '4.90 K'),
-            ('Sep1st/wf_260901_17072?_*.npz', '5.30 K'),
-            ('Sep1st/wf_260901_17271?_*.npz', '5.95 K'),
+        # patterns_labels = [ # Temp scan at (x,z) = (3.50, 6.00) mm
+        #     ('Sep1st/wf_260901_14560?_*.npz', '3.90 K'),
+        #     ('Sep1st/wf_260901_15351?_*.npz', '4.20 K'),
+        #     ('Sep1st/wf_260901_16164?_*.npz', '4.55 K'),
+        #     ('Sep1st/wf_260901_16431?_*.npz', '4.90 K'),
+        #     ('Sep1st/wf_260901_17072?_*.npz', '5.30 K'),
+        #     ('Sep1st/wf_260901_17271?_*.npz', '5.95 K'),
+        # ]
+        patterns_labels = [ # x-scan at z = 6.30 mm
+            ('Aug25th/wf_260825_13240?_*.npz', '4.30 mm'),
+            ('Aug25th/wf_260825_13200?_*.npz', '4.50 mm'),
+            ('Aug25th/wf_260825_13125?_*.npz', '4.60 mm'),
+            ('Aug25th/wf_260825_13061?_*.npz', '4.75 mm'),
+            ('Aug25th/wf_260825_13562?_*.npz', '4.95 mm'),
+            ('Aug25th/wf_260825_13444?_*.npz', '5.10 mm'),
+            ('Aug25th/wf_260825_13350?_*.npz', '5.25 mm'),
+            ('Aug25th/wf_260825_13281?_*.npz', '5.60 mm'),
         ]
+        # patterns_labels = [ # x-scan at z = 6.30 mm
+        #     ('Aug25th/wf_260825_13244?_*.npz', '4.30 mm'),
+        #     ('Aug25th/wf_260825_13192?_*.npz', '4.50 mm'),
+        #     ('Aug25th/wf_260825_13151?_*.npz', '4.60 mm'),
+        #     ('Aug25th/wf_260825_13052?_*.npz', '4.75 mm'),
+        #     ('Aug25th/wf_260825_13015?_*.npz', '4.95 mm'),
+        #     ('Aug25th/wf_260825_13421?_*.npz', '5.10 mm'),
+        #     ('Aug25th/wf_260825_13371?_*.npz', '5.25 mm'),
+        #     ('Aug25th/wf_260825_13272?_*.npz', '5.60 mm'),
+        # ]
+  
 
 
     params = {

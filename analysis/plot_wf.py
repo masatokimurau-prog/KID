@@ -56,7 +56,7 @@ def single_file(filename_, pdf1_=None):
     sig_idx = np.arange(590,599)
 
     all_ave = data['ch0'][:,:].mean(axis=0)
-    sig_ave = data['ch0'][sig_idx,:].mean(axis=0)
+    sig_ave = data['ch0'][sig_idx,::10].mean(axis=0)
     
     pdf1 = PdfPages('pc1.pdf') if pdf1_ is None else pdf1_
     
