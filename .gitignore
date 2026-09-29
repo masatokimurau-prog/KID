@@ -26,6 +26,9 @@ NI_manual/
 test_2026Apr/
 old/
 
+# KIDPACK is an independent project with its own git repository.
+KIDPACK/
+
 
 
 # --- Raw waveform/measurement data ---
